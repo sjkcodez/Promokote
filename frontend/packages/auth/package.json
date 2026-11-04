@@ -1,0 +1,10 @@
+{
+  "name": "@promokote/auth",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@promokote/api-client": "workspace:*"
+  }
+}

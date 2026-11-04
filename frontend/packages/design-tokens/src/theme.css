@@ -1,0 +1,32 @@
+@theme {
+  --color-primary: #2563EB;
+  --color-primary-dark: #1E40AF;
+  --color-primary-light: #DBEAFE;
+
+  --color-accent: #F97316;
+  --color-accent-light: #FFEDD5;
+
+  --color-sms: #10B981;
+  --color-sms-light: #D1FAE5;
+
+  --color-email: #7C3AED;
+  --color-email-light: #EDE9FE;
+
+  --color-ink: #0F172A;
+  --color-slate: #475569;
+  --color-mist: #E2E8F0;
+  --color-cloud: #F8FAFC;
+  --color-surface: #FFFFFF;
+
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
+
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06);
+  --shadow-popover: 0 10px 30px -12px rgb(15 23 42 / 0.18);
+}

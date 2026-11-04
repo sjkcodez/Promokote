@@ -1,0 +1,18 @@
+{
+  "name": "@promokote/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "openapi-fetch": "^0.12.0"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.0.0",
+    "typescript": "^5.5.0"
+  },
+  "scripts": {
+    "generate": "openapi-typescript ../../../backend/openapi.json -o src/schema.d.ts"
+  }
+}

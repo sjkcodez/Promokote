@@ -1,0 +1,8 @@
+@import "tailwindcss";
+@import "@promokote/design-tokens/theme.css";
+
+@source "../../../../packages/ui/src";
+
+@layer base {
+  html { background-color: var(--color-cloud); color: var(--color-ink); }
+}
