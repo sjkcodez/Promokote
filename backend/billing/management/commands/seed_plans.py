@@ -2,7 +2,7 @@ from django.core.management.base import BaseCommand
 from billing.models import Plan
 
 PLANS = [
-    dict(name="Free Trial", description="Try Promokote with a small allowance", price=0, sms_quota=20, email_quota=50,
+    dict(name="Free Trial", description="Try Promokote with a small allowance", price=0, sms_quota=0, email_quota=50,
          rate_limit_per_minute=30, max_api_keys=2, is_default=True, sort_order=0),
     dict(name="Starter", description="For small businesses getting going", price=25000, sms_quota=1000, email_quota=5000,
          rate_limit_per_minute=60, max_api_keys=3, sort_order=1),

@@ -23,6 +23,12 @@ class MessageType(graphene.ObjectType):
     created_at = graphene.DateTime()
     sent_at = graphene.DateTime()
     campaign_name = graphene.String()
+    billing_source = graphene.String()
+    sender_id = graphene.String()
+
+    def resolve_error(self, info):
+        from core.i18n import translate
+        return translate(self.error)
 
     def resolve_campaign_name(self, info):
         return self.campaign.name if self.campaign_id else None

@@ -4,7 +4,8 @@ from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 from accounts.models import Organization
-from billing import services as billing
+from billing import demo, services as billing
+from billing.models import DemoCreditEntry
 from core import upstream
 from core.models import OptOut
 from .models import Campaign, Message
@@ -87,17 +88,63 @@ def submit_message(org, channel, recipient, body, subject="", source="api", api_
                 recipient=address, subject=subject, body=body, segments=segments, idempotency_key=idempotency_key)
     if is_opted_out(org, channel, address):
         return Message.objects.create(status=Message.BLOCKED, error="Recipient has opted out.", **base)
+    if channel == "sms" and demo.in_demo(org):
+        msg, created = _submit_demo(org, base, segments, address)
+    else:
+        msg, created = _submit_paid(org, channel, base, segments)
+    if not created:   # idempotent replay: return the original message untouched
+        return msg
+    return dispatch_message(msg) if dispatch else msg
+
+
+def _submit_demo(org, base, segments, address):
+    """Demo SMS: debit, message row and ledger entry commit together, or not at all."""
+    try:
+        with transaction.atomic():
+            demo.consume(org, segments, address)
+            msg = Message.objects.create(status=Message.QUEUED, billing_source="demo",
+                                         sender_id=settings.DEMO_SMS_SENDER_ID, **base)
+            demo.record(org, DemoCreditEntry.DEBIT, segments, msg)
+            return msg, True
+    except billing.QuotaError as exc:
+        raise SendError(str(exc), exc.code, 402)
+    except IntegrityError:   # concurrent duplicate idempotency key: the whole debit was rolled back
+        return Message.objects.get(organization=org, idempotency_key=base["idempotency_key"]), False
+
+
+def _submit_paid(org, channel, base, segments):
     try:
         billing.consume(org, channel, segments)
     except billing.QuotaError as exc:
         raise SendError(str(exc), exc.code, 402)
+    sender = org.sms_sender_id if channel == "sms" else ""
     try:
         with transaction.atomic():
-            msg = Message.objects.create(status=Message.QUEUED, **base)
+            return Message.objects.create(status=Message.QUEUED, sender_id=sender, **base), True
     except IntegrityError:   # concurrent duplicate idempotency key
         billing.refund(org, channel, segments)
-        return Message.objects.get(organization=org, idempotency_key=idempotency_key)
-    return dispatch_message(msg) if dispatch else msg
+        return Message.objects.get(organization=org, idempotency_key=base["idempotency_key"]), False
+
+
+def refund_message(msg):
+    """Return the credits of a message that was not delivered to the pool they came from."""
+    if msg.billing_source == "demo":
+        demo.refund(msg.organization, msg.segments, msg)
+    else:
+        billing.refund(msg.organization, msg.channel, msg.segments)
+
+
+def credits_left(org, channel):
+    """(remaining credits, pool) the next send of `channel` would draw from. Raises SendError if it cannot send."""
+    if channel == "sms" and demo.in_demo(org):
+        try:
+            return demo.ensure_usable(org).remaining, "demo"
+        except billing.QuotaError as exc:
+            raise SendError(str(exc), exc.code, 402)
+    sub = billing.current_subscription(org)
+    if not sub:
+        raise SendError("No active subscription. Choose a plan to start sending.", "no_subscription", 402)
+    return billing.remaining(sub, channel), "subscription"
 
 
 def dispatch_message(msg):
@@ -107,7 +154,7 @@ def dispatch_message(msg):
         return msg
     try:
         if msg.channel == "sms":
-            data = upstream.send_sms(msg.recipient, msg.body)
+            data = upstream.send_sms(msg.recipient, msg.body, msg.sender_id or None)
         else:
             html = msg.body
             if msg.source == "campaign":
@@ -118,7 +165,7 @@ def dispatch_message(msg):
         msg.status, msg.sent_at, msg.provider_id = Message.SENT, timezone.now(), upstream.provider_id(data)
     except upstream.UpstreamError as exc:
         msg.status, msg.error = Message.FAILED, str(exc)[:300]
-        billing.refund(msg.organization, msg.channel, msg.segments)
+        refund_message(msg)
     msg.save()
     if msg.campaign_id:
         refresh_campaign(msg.campaign)
@@ -140,13 +187,14 @@ def launch_campaign(campaign, user=None):
     contacts = campaign_recipients(campaign)
     if not contacts:
         raise SendError("The selected lists have no contacts with a valid " + ("phone number." if campaign.channel == "sms" else "email address."))
-    sub = billing.current_subscription(org)
-    if not sub:
-        raise SendError("No active subscription. Choose a plan to start sending.", "no_subscription", 402)
+    left, pool = credits_left(org, campaign.channel)
     need = sum(sms_info(render(campaign.body, c))[2] for c in contacts) if campaign.channel == "sms" else len(contacts)
-    if billing.remaining(sub, campaign.channel) < need:
+    if left < need:
+        if pool == "demo":
+            raise SendError(f"This campaign needs {need} SMS credits but you have {left} free demo SMS left.",
+                            "demo_exhausted", 402)
         raise SendError(f"This campaign needs {need} {campaign.channel.upper()} credits but your plan has "
-                        f"{billing.remaining(sub, campaign.channel)} left.", "quota_exceeded", 402)
+                        f"{left} left.", "quota_exceeded", 402)
     for c in contacts:
         try:
             submit_message(org, campaign.channel, c.phone if campaign.channel == "sms" else c.email,
@@ -187,7 +235,7 @@ def cancel_campaign(campaign):
     for m in campaign.messages.filter(status=Message.QUEUED):   # release quota for unsent messages
         m.status, m.error = Message.FAILED, "Campaign cancelled."
         m.save(update_fields=["status", "error"])
-        billing.refund(campaign.organization, m.channel, m.segments)
+        refund_message(m)
 
 
 def run_due_campaigns():

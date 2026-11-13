@@ -1,12 +1,23 @@
 <!doctype html>
-<html lang="en">
+<html lang="sw">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Promokote - SMS &amp; Email campaigns</title>
+    <meta name="theme-color" content="#f59e0b" />
+    <meta name="description" content="Promokote: SMS kwa wingi na barua pepe za biashara. Bulk SMS and business email for Tanzanian businesses." />
+    <title>Promokote - SMS kwa Wingi na Barua Pepe za Biashara</title>
+    <script>
+      // Apply saved theme and language before first paint (no flash of the wrong theme).
+      try {
+        var t = localStorage.getItem('promokote.theme')
+        if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark')
+        var l = localStorage.getItem('promokote.lang')
+        if (l === 'en' || l === 'sw') document.documentElement.lang = l
+      } catch (e) {}
+    </script>
   </head>
-  <body class="bg-slate-50 text-slate-800 antialiased">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

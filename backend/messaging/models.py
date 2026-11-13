@@ -58,6 +58,8 @@ class Message(models.Model):
     subject = models.CharField(max_length=200, blank=True)
     body = models.TextField()
     segments = models.PositiveIntegerField(default=1)
+    billing_source = models.CharField(max_length=12, default="subscription")   # subscription | demo
+    sender_id = models.CharField(max_length=11, blank=True)
     status = models.CharField(max_length=10, default=QUEUED, db_index=True)
     error = models.CharField(max_length=300, blank=True)
     provider_id = models.CharField(max_length=100, blank=True)

@@ -1,6 +1,6 @@
 import json
 from django.test import TestCase, Client
-from accounts.models import User
+from accounts.models import Organization, User
 from billing.models import Plan
 from messaging.services import normalize_phone, sms_info
 
@@ -21,9 +21,13 @@ class Helpers:
         self.c = Client()
         Plan.objects.create(name="Free", price=0, sms_quota=3, email_quota=2, rate_limit_per_minute=100, max_api_keys=3, is_default=True)
 
-    def register(self, email="a@x.com"):
+    def register(self, email="a@x.com", sms_activated=True):
+        """Registers an owner. By default the org is SMS-activated (approved Sender ID) so SMS use the plan quota;
+        pass sms_activated=False to stay on the free demo allowance like a brand-new customer."""
         d = gql(self.c, REGISTER, {"e": email, "p": "Str0ng-pass-1"})
         self.assertNotIn("errors", d, d)
+        if sms_activated:
+            Organization.objects.filter(memberships__user__email=email).update(sms_activated=True)
         return d["data"]["register"]["token"]
 
     def key(self, token, service="all"):

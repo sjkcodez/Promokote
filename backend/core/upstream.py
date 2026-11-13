@@ -51,5 +51,8 @@ def send_email(recipient, subject, html_body):
     return _post("send-email", {"recipient": recipient, "subject": subject, "html_body": html_body})
 
 
-def send_sms(to, text):
-    return _post("send-sms", {"to": to, "text": text})
+def send_sms(to, text, sender=None):
+    payload = {"to": to, "text": text}
+    if sender and settings.UPSTREAM_SMS_SENDER_FIELD:
+        payload[settings.UPSTREAM_SMS_SENDER_FIELD] = sender
+    return _post("send-sms", payload)

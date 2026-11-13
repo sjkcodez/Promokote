@@ -13,7 +13,7 @@ def default_plan():
     plan = Plan.objects.filter(is_default=True, is_active=True).first()
     if not plan:
         plan, _ = Plan.objects.get_or_create(
-            name="Free Trial", defaults=dict(description="Try Promokote for free", price=0, sms_quota=20,
+            name="Free Trial", defaults=dict(description="Try Promokote for free", price=0, sms_quota=0,
                                              email_quota=50, rate_limit_per_minute=30, max_api_keys=2,
                                              is_default=True, sort_order=0))
     return plan

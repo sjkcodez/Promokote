@@ -3,9 +3,9 @@ from django.core import signing
 from django.http import HttpResponse
 from django.urls import include, path
 from django.views.decorators.csrf import csrf_exempt
-from graphene_django.views import GraphQLView
 from accounts.models import Organization
 from core.models import OptOut
+from core.views import I18nGraphQLView
 
 
 def unsubscribe(request, token):
@@ -22,7 +22,7 @@ def unsubscribe(request, token):
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("graphql/", csrf_exempt(GraphQLView.as_view(graphiql=True))),
+    path("graphql/", csrf_exempt(I18nGraphQLView.as_view(graphiql=True))),
     path("api/v1/", include("api.urls")),
     path("u/<str:token>/", unsubscribe),
 ]

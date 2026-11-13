@@ -1,10 +1,12 @@
 import { FormEvent, useState } from 'react'
 import { Mail, MessageSquare, Plus, XCircle } from 'lucide-react'
 import { fmtDate, gql, smsInfo, useQuery } from '../lib/api'
+import { useI18n } from '../lib/i18n'
 import type { Campaign, ContactList } from '../lib/types'
 import { Alert, Badge, Empty, Field, Loading, Modal, PageHeader, Table, Td } from '../components/ui'
 
 export default function Campaigns() {
+  const { t } = useI18n()
   const { data, loading, error, reload } = useQuery<{ campaigns: Campaign[]; contactLists: ContactList[] }>(`{
     campaigns { id name channel status scheduledAt createdAt listNames total sent failed blocked queued }
     contactLists { id name contactCount }
@@ -26,53 +28,53 @@ export default function Campaigns() {
     } catch (x) { setErr((x as Error).message) } finally { setBusy(false) }
   }
   async function cancel(c: Campaign) {
-    if (!confirm(`Cancel "${c.name}"? Unsent messages are dropped and their credits returned.`)) return
+    if (!confirm(t('camp.cancelConfirm', { name: c.name }))) return
     try { await gql('mutation($i:ID!){cancelCampaign(id:$i){ok}}', { i: c.id }); void reload() } catch (x) { alert((x as Error).message) }
   }
 
   return (
     <div>
-      <PageHeader title="Campaigns" subtitle="Send an SMS or email to one or more contact lists, now or later."
-        action={<button className="btn-primary" onClick={() => setOpen(true)}><Plus className="h-4 w-4" />New campaign</button>} />
+      <PageHeader title={t('camp.title')} subtitle={t('camp.subtitle')}
+        action={<button className="btn-primary" onClick={() => setOpen(true)}><Plus className="h-4 w-4" />{t('camp.new')}</button>} />
       <Alert>{error}</Alert>
-      {loading ? <Loading /> : !data?.campaigns.length ? <Empty title="No campaigns yet" text="Create a contact list first, then launch your first campaign." action={<button className="btn-primary" onClick={() => setOpen(true)}>Create campaign</button>} /> : (
-        <Table head={['Campaign', 'Lists', 'Status', 'Sent', 'Failed', 'Skipped', 'Pending', 'Created', '']}>
+      {loading ? <Loading /> : !data?.campaigns.length ? <Empty title={t('camp.empty.title')} text={t('camp.empty.text')} action={<button className="btn-primary" onClick={() => setOpen(true)}>{t('camp.create')}</button>} /> : (
+        <Table head={[t('camp.col.name'), t('camp.col.lists'), t('col.status'), t('camp.col.sent'), t('camp.col.failed'), t('camp.col.skipped'), t('camp.col.pending'), t('col.created'), '']}>
           {data.campaigns.map((c) => (
             <tr key={c.id}>
-              <Td><p className="flex items-center gap-2 font-medium">{c.channel === 'sms' ? <MessageSquare className="h-4 w-4 text-brand-600" /> : <Mail className="h-4 w-4 text-brand-600" />}{c.name}</p>{c.scheduledAt && c.status === 'scheduled' && <p className="text-xs text-slate-500">Scheduled {fmtDate(c.scheduledAt)}</p>}</Td>
+              <Td><p className="flex items-center gap-2 font-medium">{c.channel === 'sms' ? <MessageSquare className="h-4 w-4 text-accent" /> : <Mail className="h-4 w-4 text-accent" />}{c.name}</p>{c.scheduledAt && c.status === 'scheduled' && <p className="text-xs text-muted">{t('camp.scheduledFor', { date: fmtDate(c.scheduledAt) })}</p>}</Td>
               <Td>{c.listNames.join(', ')}</Td><Td><Badge>{c.status}</Badge></Td>
               <Td>{c.sent}/{c.total}</Td><Td>{c.failed}</Td><Td>{c.blocked}</Td><Td>{c.queued}</Td><Td className="whitespace-nowrap">{fmtDate(c.createdAt)}</Td>
-              <Td>{(c.status === 'scheduled' || c.status === 'running') && <button className="rounded-lg p-2 text-red-600 hover:bg-red-50" onClick={() => cancel(c)} aria-label="Cancel"><XCircle className="h-4 w-4" /></button>}</Td>
+              <Td>{(c.status === 'scheduled' || c.status === 'running') && <button className="rounded-lg p-2 text-danger hover:bg-danger-soft" onClick={() => cancel(c)} aria-label={t('common.cancel')}><XCircle className="h-4 w-4" /></button>}</Td>
             </tr>
           ))}
         </Table>
       )}
 
       {open && (
-        <Modal title="New campaign" onClose={() => setOpen(false)}>
+        <Modal title={t('camp.new')} onClose={() => setOpen(false)}>
           <form onSubmit={create} className="space-y-4">
             <Alert>{err}</Alert>
-            <Field label="Campaign name"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
-            <Field label="Channel"><select className="input" value={f.channel} onChange={(e) => setF({ ...f, channel: e.target.value })}><option value="sms">SMS</option><option value="email">Email</option></select></Field>
-            <Field label="Send to (contact lists)">
+            <Field label={t('camp.f.name')}><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
+            <Field label={t('col.channel')}><select className="input" value={f.channel} onChange={(e) => setF({ ...f, channel: e.target.value })}><option value="sms">{t('common.sms')}</option><option value="email">{t('common.email')}</option></select></Field>
+            <Field label={t('camp.f.lists')}>
               {data?.contactLists.length ? (
-                <div className="space-y-1 rounded-lg border border-slate-300 p-2">
+                <div className="space-y-1 rounded-lg border border-line-strong p-2">
                   {data.contactLists.map((l) => (
-                    <label key={l.id} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-slate-50">
-                      <input type="checkbox" checked={ids.includes(l.id)} onChange={(e) => setIds(e.target.checked ? [...ids, l.id] : ids.filter((x) => x !== l.id))} />
-                      {l.name} <span className="text-slate-400">({l.contactCount})</span>
+                    <label key={l.id} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-subtle">
+                      <input type="checkbox" className="accent-brand-500" checked={ids.includes(l.id)} onChange={(e) => setIds(e.target.checked ? [...ids, l.id] : ids.filter((x) => x !== l.id))} />
+                      {l.name} <span className="text-faint">({l.contactCount})</span>
                     </label>
                   ))}
                 </div>
-              ) : <p className="text-sm text-slate-500">Create a contact list first.</p>}
+              ) : <p className="text-sm text-muted">{t('camp.f.noLists')}</p>}
             </Field>
-            {f.channel === 'email' && <Field label="Subject"><input className="input" required value={f.subject} onChange={(e) => setF({ ...f, subject: e.target.value })} /></Field>}
-            <Field label="Message" hint={'Personalise with {{name}}, {{phone}}, {{email}} or any extra column. Email campaigns automatically get an unsubscribe link.'}>
+            {f.channel === 'email' && <Field label={t('send.subject')}><input className="input" required value={f.subject} onChange={(e) => setF({ ...f, subject: e.target.value })} /></Field>}
+            <Field label={t('send.message')} hint={t('camp.f.bodyHint')}>
               <textarea className="input min-h-[130px]" required value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} />
             </Field>
-            {f.channel === 'sms' && <p className="text-xs text-slate-500">{info.length} chars &middot; {info.encoding} &middot; {info.segments} segment(s) per recipient{people ? ` · about ${(info.segments * people).toLocaleString()} credits` : ''}</p>}
-            <Field label="Schedule (optional)" hint="Leave empty to send immediately."><input className="input" type="datetime-local" value={f.scheduledAt} onChange={(e) => setF({ ...f, scheduledAt: e.target.value })} /></Field>
-            <button className="btn-primary w-full" disabled={busy || !ids.length}>{busy ? 'Working...' : f.scheduledAt ? 'Schedule campaign' : 'Send campaign now'}</button>
+            {f.channel === 'sms' && <p className="text-xs text-muted">{t('camp.counter', { len: info.length, enc: info.encoding, n: info.segments })}{people ? ` · ${t('camp.credits', { n: (info.segments * people).toLocaleString() })}` : ''}</p>}
+            <Field label={t('camp.f.schedule')} hint={t('camp.f.scheduleHint')}><input className="input" type="datetime-local" value={f.scheduledAt} onChange={(e) => setF({ ...f, scheduledAt: e.target.value })} /></Field>
+            <button className="btn-primary w-full" disabled={busy || !ids.length}>{busy ? t('common.working') : f.scheduledAt ? t('camp.schedule') : t('camp.sendNow')}</button>
           </form>
         </Modal>
       )}

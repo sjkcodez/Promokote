@@ -5,9 +5,10 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from graphql import GraphQLError
-from billing import services as billing
+from billing import demo, services as billing
 from core.audit import audit
-from core.system_mail import send_system_email, wrap
+from core.i18n import current_language, normalize
+from core.system_mail import send_localized
 from .models import Membership, Organization, User
 from .permissions import ctx, get_membership
 from .tokens import make_jwt, make_signed, read_signed
@@ -19,6 +20,8 @@ class OrgType(graphene.ObjectType):
     role = graphene.String()
     sms_enabled = graphene.Boolean()
     email_enabled = graphene.Boolean()
+    sms_activated = graphene.Boolean()
+    sms_sender_id = graphene.String()
 
 
 class UserType(graphene.ObjectType):
@@ -27,6 +30,7 @@ class UserType(graphene.ObjectType):
     full_name = graphene.String()
     email_verified = graphene.Boolean()
     is_staff = graphene.Boolean()
+    language = graphene.String()
     organization = graphene.Field(OrgType)
 
 
@@ -39,10 +43,11 @@ class MemberType(graphene.ObjectType):
 
 def user_type(u):
     m = get_membership(u)
-    org = OrgType(id=m.organization.id, name=m.organization.name, role=m.role, sms_enabled=m.organization.sms_enabled,
-                  email_enabled=m.organization.email_enabled) if m else None
+    o = m.organization if m else None
+    org = OrgType(id=o.id, name=o.name, role=m.role, sms_enabled=o.sms_enabled, email_enabled=o.email_enabled,
+                  sms_activated=o.sms_activated, sms_sender_id=o.sms_sender_id) if m else None
     return UserType(id=u.id, email=u.email, full_name=u.full_name, email_verified=u.email_verified, is_staff=u.is_staff,
-                    organization=org)
+                    language=u.language, organization=org)
 
 
 def check_password(pw, user=None):
@@ -54,8 +59,7 @@ def check_password(pw, user=None):
 
 def send_verification(user):
     link = f"{settings.FRONTEND_URL}/verify-email?token={make_signed('verify', user)}"
-    send_system_email(user.email, "Verify your Promokote email",
-                      wrap("Welcome to Promokote", "Confirm your email address to finish setting up your account.", link, "Verify email"))
+    send_localized(user.email, "verify", user.language, link)
 
 
 class AuthPayload(graphene.ObjectType):
@@ -69,21 +73,24 @@ class Register(graphene.Mutation):
         password = graphene.String(required=True)
         full_name = graphene.String(required=True)
         organization_name = graphene.String(required=True)
+        language = graphene.String(description="sw (default) or en")
 
     Output = AuthPayload
 
     @transaction.atomic
-    def mutate(self, info, email, password, full_name, organization_name):
+    def mutate(self, info, email, password, full_name, organization_name, language=None):
         email = email.strip().lower()
         if User.objects.filter(email=email).exists():
             raise GraphQLError("An account with this email already exists.")
         check_password(password)
         if not organization_name.strip():
             raise GraphQLError("Organisation name is required.")
-        user = User.objects.create_user(email, password, full_name=full_name.strip())
+        lang = normalize(language) or current_language.get() or settings.APP_DEFAULT_LANGUAGE
+        user = User.objects.create_user(email, password, full_name=full_name.strip(), language=lang)
         org = Organization.objects.create(name=organization_name.strip())
         Membership.objects.create(user=user, organization=org, role=Membership.OWNER)
         billing.start_subscription(org, billing.default_plan())
+        demo.grant_on_signup(org, email, demo.client_ip(info.context))
         audit(org, user, "register", email)
         send_verification(user)
         return AuthPayload(token=make_jwt(user), user=user_type(user))
@@ -140,8 +147,7 @@ class RequestPasswordReset(graphene.Mutation):
         user = User.objects.filter(email=email.strip().lower(), is_active=True).first()
         if user:
             link = f"{settings.FRONTEND_URL}/reset-password?token={make_signed('reset', user)}"
-            send_system_email(user.email, "Reset your Promokote password",
-                              wrap("Reset your password", "Click below to choose a new password. The link expires in 2 hours.", link, "Reset password"))
+            send_localized(user.email, "reset", user.language, link)
         return RequestPasswordReset(ok=True)   # same answer whether or not the account exists
 
 
@@ -180,15 +186,31 @@ class InviteMember(graphene.Mutation):
         if target and Membership.objects.filter(user=target).exclude(organization=org).exists():
             raise GraphQLError("That person already belongs to another organisation.")
         if not target:
-            target = User.objects.create_user(email, None, full_name=full_name)
+            target = User.objects.create_user(email, None, full_name=full_name, language=user.language)
             target.set_unusable_password()
             target.save()
         Membership.objects.get_or_create(user=target, organization=org, defaults={"role": role})
         link = f"{settings.FRONTEND_URL}/reset-password?token={make_signed('reset', target)}"
-        send_system_email(email, f"You've been invited to {org.name} on Promokote",
-                          wrap("You're invited", f"{user.full_name or user.email} invited you to join {org.name} as {role}. Set your password to get started.", link, "Accept invitation"))
+        send_localized(email, "invite", target.language, link, org=org.name, inviter=user.full_name or user.email, role=role)
         audit(org, user, "invite_member", f"{email} as {role}")
         return InviteMember(ok=True)
+
+
+class SetLanguage(graphene.Mutation):
+    """Save the signed-in user's interface language so it follows them across sessions and devices."""
+    class Arguments:
+        language = graphene.String(required=True)
+
+    user = graphene.Field(UserType)
+
+    def mutate(self, info, language):
+        user = ctx(info)[0]
+        lang = normalize(language)
+        if not lang:
+            raise GraphQLError("Language must be sw or en.")
+        user.language = lang
+        user.save(update_fields=["language"])
+        return SetLanguage(user=user_type(user))
 
 
 class Query(graphene.ObjectType):
@@ -213,3 +235,4 @@ class Mutation(graphene.ObjectType):
     request_password_reset = RequestPasswordReset.Field()
     reset_password = ResetPassword.Field()
     invite_member = InviteMember.Field()
+    set_language = SetLanguage.Field()

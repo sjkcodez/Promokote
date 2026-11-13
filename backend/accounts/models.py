@@ -23,6 +23,8 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
+    LANGUAGES = [("sw", "Kiswahili"), ("en", "English")]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
     full_name = models.CharField(max_length=150, blank=True)
@@ -30,6 +32,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     email_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)  # Platform Admin (Promokote staff)
+    language = models.CharField(max_length=5, choices=LANGUAGES, default="sw")  # UI + system-email language
     created_at = models.DateTimeField(auto_now_add=True)
 
     objects = UserManager()
@@ -46,6 +49,9 @@ class Organization(models.Model):
     sms_enabled = models.BooleanField(default=True)      # product entitlements (FR-ID-09)
     email_enabled = models.BooleanField(default=True)
     is_suspended = models.BooleanField(default=False)
+    # Bulk SMS activation: until a Sender ID is approved, SMS go out on the free demo allowance with a generic sender.
+    sms_activated = models.BooleanField(default=False)
+    sms_sender_id = models.CharField(max_length=11, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

@@ -64,7 +64,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CORS_ALLOWED_ORIGINS = [o for o in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173").split(",") if o]
-CORS_ALLOW_HEADERS = ["accept", "authorization", "content-type", "x-api-key", "x-api-secret", "x-requested-with"]
+CORS_ALLOW_HEADERS = ["accept", "accept-language", "authorization", "content-type", "x-api-key", "x-api-secret", "x-requested-with"]
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/")
 
@@ -86,6 +86,22 @@ UPSTREAM_API_SECRET = os.getenv("UPSTREAM_API_SECRET", "")
 _fake = os.getenv("UPSTREAM_FAKE", "").lower()
 UPSTREAM_FAKE = (_fake == "true") if _fake else not (UPSTREAM_API_KEY and UPSTREAM_API_SECRET)
 CAMPAIGN_BACKGROUND_THREAD = "test" not in sys.argv
+
+# Interface language: Kiswahili by default, English available. The web console sends `Accept-Language`.
+APP_LANGUAGES = ("sw", "en")
+APP_DEFAULT_LANGUAGE = os.getenv("APP_DEFAULT_LANGUAGE", "sw")
+
+# Free demo SMS for new organisations (sent with a generic sender until the customer's own Sender ID is approved)
+DEMO_SMS_CREDITS = int(os.getenv("DEMO_SMS_CREDITS", "10"))
+DEMO_SMS_SENDER_ID = os.getenv("DEMO_SMS_SENDER_ID", "PROMOKOTE")
+DEMO_REQUIRE_VERIFIED_EMAIL = os.getenv("DEMO_REQUIRE_VERIFIED_EMAIL", "True").lower() == "true"
+DEMO_MAX_CLAIMS_PER_IP_PER_DAY = int(os.getenv("DEMO_MAX_CLAIMS_PER_IP_PER_DAY", "3"))
+DEMO_MAX_PER_RECIPIENT_PER_DAY = int(os.getenv("DEMO_MAX_PER_RECIPIENT_PER_DAY", "5"))
+# Only trust X-Forwarded-For when the backend sits behind your own reverse proxy (it can be spoofed otherwise).
+TRUST_X_FORWARDED_FOR = os.getenv("TRUST_X_FORWARDED_FOR", "False").lower() == "true"
+# Name of the sender field on the upstream `send-sms` endpoint (e.g. "sender_id"). Empty = upstream uses its default
+# sender and no sender field is sent.
+UPSTREAM_SMS_SENDER_FIELD = os.getenv("UPSTREAM_SMS_SENDER_FIELD", "")
 
 CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

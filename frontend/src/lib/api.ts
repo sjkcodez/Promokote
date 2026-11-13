@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { getLang, translate } from './i18n'
 
 export const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
 const TOKEN_KEY = 'promokote.token'
@@ -12,11 +13,15 @@ export async function gql<T = any>(query: string, variables: Record<string, unkn
   try {
     res = await fetch(`${API_URL}/graphql/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}) },
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept-Language': getLang(),   // server answers errors in the same language
+        ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+      },
       body: JSON.stringify({ query, variables }),
     })
   } catch {
-    throw new Error('Cannot reach the server. Check your connection and try again.')
+    throw new Error(translate(getLang(), 'error.network'))
   }
   const json = await res.json()
   if (json.errors?.length) throw new Error(json.errors[0].message)
@@ -44,7 +49,7 @@ export function useQuery<T = any>(query: string, variables: Record<string, unkno
 }
 
 export const fmtDate = (s?: string | null) =>
-  s ? new Date(s).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Dar_es_Salaam' }) : '-'
+  s ? new Date(s).toLocaleString(getLang() === 'sw' ? 'sw-TZ' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Dar_es_Salaam' }) : '-'
 export const fmtMoney = (n: number, cur = 'TZS') => `${cur} ${Math.round(n).toLocaleString('en-US')}`
 
 // GSM-7 / Unicode segment counter (mirrors the backend)
