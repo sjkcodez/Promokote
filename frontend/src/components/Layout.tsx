@@ -1,6 +1,6 @@
 import { ReactNode, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { BadgeCheck, BookOpen, CreditCard, KeyRound, LayoutDashboard, LogOut, Menu, MessageSquare, Radio, Send, ShieldCheck, Ban, Users, UserCog, X } from 'lucide-react'
+import { BadgeCheck, BookOpen, CreditCard, KeyRound, LayoutDashboard, LogOut, Menu, MessageSquare, Radio, Send, ShieldCheck, Ban, Users, UserCog, Wallet, X } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { gql } from '../lib/api'
 import { TKey, useI18n } from '../lib/i18n'
@@ -18,6 +18,7 @@ const NAV: { to: string; label: TKey; icon: typeof Send }[] = [
   { to: '/messages', label: 'nav.messages', icon: MessageSquare },
   { to: '/opt-outs', label: 'nav.optOuts', icon: Ban },
   { to: '/sms-activation', label: 'nav.activation', icon: BadgeCheck },
+  { to: '/buy-credits', label: 'nav.buy', icon: Wallet },
   { to: '/plans', label: 'nav.plans', icon: CreditCard },
   { to: '/api-keys', label: 'nav.apiKeys', icon: KeyRound },
   { to: '/docs', label: 'nav.docs', icon: BookOpen },
@@ -39,7 +40,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         <NavLink key={to} to={to} end={to === '/'} onClick={() => setOpen(false)}
           className={({ isActive }) => `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${isActive ? 'bg-brand-500 text-on-brand' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}>
           <Icon className="h-5 w-5 shrink-0" />
-          <span className="flex-1 truncate">{t(label)}</span>
+          <span className="min-w-0 flex-1 leading-tight">{t(label)}</span>
           {to === '/sms-activation' && org && !org.smsActivated && <span className="rounded-full bg-brand-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase text-brand-400">{t('status.demo')}</span>}
         </NavLink>
       ))}

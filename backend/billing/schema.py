@@ -168,6 +168,9 @@ class Subscribe(graphene.Mutation):
         org.subscriptions.filter(status=Subscription.PENDING).update(status=Subscription.CANCELLED)
         sub = services.start_subscription(org, plan)
         audit(org, user, "subscribe_requested", f"{plan.name} -> {sub.status}")
+        if sub.status == Subscription.PENDING:
+            from .orders_schema import notify_plan_request
+            notify_plan_request(org, user, plan)
         return Subscribe(subscription=sub)
 
 

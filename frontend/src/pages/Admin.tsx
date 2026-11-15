@@ -2,7 +2,8 @@ import { FormEvent, useState } from 'react'
 import { Pencil, Plus } from 'lucide-react'
 import { fmtDate, fmtMoney, gql, useQuery } from '../lib/api'
 import { useI18n } from '../lib/i18n'
-import type { ActivationConfig, Plan, SenderIdRequest, Subscription } from '../lib/types'
+import type { ActivationConfig, CreditOrder, CreditPrice, PaymentSettings, Plan, SenderIdRequest, Subscription } from '../lib/types'
+import { ORDER_FIELDS, PAYMENT_FIELDS } from '../lib/pricing'
 import { Alert, Badge, Field, Loading, Modal, PageHeader, Table, Td } from '../components/ui'
 
 interface Org { id: string; name: string; ownerEmail: string; planName: string; subscriptionStatus: string; smsEnabled: boolean; emailEnabled: boolean; isSuspended: boolean; messagesSent: number; createdAt: string; smsActivated: boolean; smsSenderId: string; demoUsed: number; demoGranted: number }
@@ -10,6 +11,7 @@ interface Data {
   adminStats: { organizations: number; users: number; messagesSent: number; pendingSubscriptions: number }
   adminPlans: Plan[]; adminOrganizations: Org[]; pending: (Subscription & { organizationName: string; organization?: { id: string } })[]
   adminSenderIdRequests: SenderIdRequest[]; smsActivationConfig: ActivationConfig
+  adminCreditOrders: CreditOrder[]; creditPrices: CreditPrice[]; paymentSettings: PaymentSettings
 }
 
 const BLANK = { id: '', name: '', description: '', price: 0, currency: 'TZS', periodDays: 30, smsQuota: 100, emailQuota: 500, rateLimitPerMinute: 60, maxApiKeys: 3, isActive: true, isDefault: false, sortOrder: 0 }
@@ -19,6 +21,9 @@ const Q = `{
   adminOrganizations { id name ownerEmail planName subscriptionStatus smsEnabled emailEnabled isSuspended messagesSent createdAt smsActivated smsSenderId demoUsed demoGranted }
   adminSenderIdRequests { id senderId businessName registrationNumber contactPhone useCase sampleMessage status feeAmount feeCurrency feePaidAt adminNote createdAt organizationName requestedByEmail }
   smsActivationConfig { senderIdFee currency processingDays paymentInstructions }
+  adminCreditOrders { ${ORDER_FIELDS} organizationName organizationSmsActivated requestedByEmail }
+  creditPrices { channel minQuantity unitPrice }
+  paymentSettings { ${PAYMENT_FIELDS} }
 }`
 
 export default function Admin() {
@@ -33,6 +38,11 @@ export default function Admin() {
   const [note, setNote] = useState('')
   const [cfg, setCfg] = useState<ActivationConfig | null>(null)
   const [cfgMsg, setCfgMsg] = useState('')
+  const [order, setOrder] = useState<CreditOrder | null>(null)
+  const [orderNote, setOrderNote] = useState('')
+  const [pay, setPay] = useState<PaymentSettings | null>(null)
+  const [tiers, setTiers] = useState<{ channel: 'sms' | 'email'; rows: { minQuantity: string; unitPrice: string }[] } | null>(null)
+  const [orderFilter, setOrderFilter] = useState('open')
 
   async function savePlan(e: FormEvent) {
     e.preventDefault(); setErr('')
@@ -65,19 +75,89 @@ export default function Admin() {
       setCfg(null); setCfgMsg(t('admin.cfg.saved')); void reload()
     } catch (x) { setCfgMsg((x as Error).message) }
   }
+  async function reviewOrder(action: 'approve' | 'reject') {
+    setErr('')
+    try {
+      await gql('mutation($i:ID!,$a:String!,$n:String){reviewCreditOrder(id:$i,action:$a,note:$n){order{id}}}', { i: order!.id, a: action, n: orderNote })
+      setOrder(null); setOrderNote(''); void reload()
+    } catch (x) { setErr((x as Error).message) }
+  }
+  async function savePay(e: FormEvent) {
+    e.preventDefault(); setErr('')
+    const { currency, paymentInstructions, supportPhone, supportWhatsapp, supportEmail, supportHours, maxOrderQuantity } = pay!
+    try {
+      await gql('mutation($c:String,$p:String,$ph:String,$w:String,$e:String,$h:String,$m:Int){updatePaymentSettings(currency:$c,paymentInstructions:$p,supportPhone:$ph,supportWhatsapp:$w,supportEmail:$e,supportHours:$h,maxOrderQuantity:$m){settings{currency}}}',
+        { c: currency, p: paymentInstructions, ph: supportPhone, w: supportWhatsapp, e: supportEmail, h: supportHours, m: Number(maxOrderQuantity) })
+      setPay(null); void reload()
+    } catch (x) { setErr((x as Error).message) }
+  }
+  async function saveTiers(e: FormEvent) {
+    e.preventDefault(); setErr('')
+    try {
+      await gql('mutation($c:String!,$t:[PriceTierInput!]!){setCreditPrices(channel:$c,tiers:$t){prices{minQuantity}}}',
+        { c: tiers!.channel, t: tiers!.rows.filter((r) => r.minQuantity && r.unitPrice).map((r) => ({ minQuantity: Number(r.minQuantity), unitPrice: Number(r.unitPrice) })) })
+      setTiers(null); void reload()
+    } catch (x) { setErr((x as Error).message) }
+  }
   const num = (k: keyof typeof BLANK) => (e: { target: { value: string } }) => setPlan({ ...plan!, [k]: Number(e.target.value) })
   if (loading) return <Loading />
   if (!data) return <Alert>{error}</Alert>
   const s = data.adminStats
   const openReqs = data.adminSenderIdRequests.filter((r) => r.status === 'submitted' || r.status === 'under_review')
   const c = data.smsActivationConfig
+  const isOpen = (o: CreditOrder) => o.status === 'pending_payment' || o.status === 'payment_submitted'
+  const orders = data.adminCreditOrders.filter((o) => orderFilter === 'all' || (orderFilter === 'open' ? isOpen(o) : o.status === orderFilter))
+  const ps = data.paymentSettings
+  const editTiers = (channel: 'sms' | 'email') => { setErr(''); setTiers({ channel, rows: [...data.creditPrices.filter((p) => p.channel === channel).map((p) => ({ minQuantity: String(p.minQuantity), unitPrice: String(p.unitPrice) })), { minQuantity: '', unitPrice: '' }] }) }
 
   return (
     <div className="space-y-10">
       <PageHeader title={t('admin.title')} subtitle={t('admin.subtitle')} />
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        {([[t('admin.stat.orgs'), s.organizations], [t('admin.stat.users'), s.users], [t('admin.stat.sent'), s.messagesSent], [t('admin.stat.pending'), s.pendingSubscriptions], [t('admin.stat.sender'), openReqs.length]] as const).map(([l, v]) => <div key={l} className="card"><p className="text-2xl font-bold">{v.toLocaleString()}</p><p className="text-sm text-muted">{l}</p></div>)}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
+        {([[t('admin.stat.orgs'), s.organizations], [t('admin.stat.users'), s.users], [t('admin.stat.sent'), s.messagesSent], [t('admin.stat.pending'), s.pendingSubscriptions], [t('admin.stat.sender'), openReqs.length], [t('admin.orders.title'), data.adminCreditOrders.filter(isOpen).length]] as const).map(([l, v]) => <div key={l} className="card"><p className="text-2xl font-bold">{v.toLocaleString()}</p><p className="text-sm text-muted">{l}</p></div>)}
       </div>
+
+      <section>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">{t('admin.orders.title')}</h2>
+          <select className="input !w-auto" value={orderFilter} onChange={(e) => setOrderFilter(e.target.value)} aria-label={t('col.status')}>
+            <option value="open">{t('admin.orders.open')}</option><option value="approved">{t('status.approved')}</option><option value="rejected">{t('status.rejected')}</option><option value="all">{t('admin.orders.all')}</option>
+          </select>
+        </div>
+        {orders.length === 0 ? <p className="text-sm text-muted">{t('admin.orders.none')}</p> : (
+          <Table head={[t('buy.reference'), t('admin.col.org'), t('admin.orders.items'), t('buy.total'), t('buy.txn'), t('col.status'), t('col.created'), '']}>
+            {orders.map((o) => (
+              <tr key={o.id}>
+                <Td className="font-mono font-semibold">{o.reference}</Td>
+                <Td>{o.organizationName}<p className="text-xs text-muted">{o.requestedByEmail}</p></Td>
+                <Td className="whitespace-nowrap">{[o.smsQuantity ? `${o.smsQuantity.toLocaleString()} SMS` : '', o.emailQuantity ? `${o.emailQuantity.toLocaleString()} ${t('common.email')}` : ''].filter(Boolean).join(' + ')}</Td>
+                <Td className="whitespace-nowrap font-semibold">{fmtMoney(o.total, o.currency)}</Td>
+                <Td>{o.paymentReference || '-'}</Td><Td><Badge>{o.status}</Badge></Td><Td className="whitespace-nowrap">{fmtDate(o.createdAt)}</Td>
+                <Td>{isOpen(o) && <button className="btn-primary !px-3 !py-1.5" onClick={() => { setOrder(o); setOrderNote(''); setErr('') }}>{t('admin.sender.review')}</button>}</Td>
+              </tr>
+            ))}
+          </Table>
+        )}
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-3">
+        {(['sms', 'email'] as const).map((ch) => (
+          <div key={ch} className="card">
+            <div className="flex items-center justify-between gap-2"><p className="font-semibold">{t('admin.tiers.title', { what: ch === 'sms' ? 'SMS' : t('common.email') })}</p><button className="icon-btn" onClick={() => editTiers(ch)} aria-label={t('common.edit')}><Pencil className="h-4 w-4" /></button></div>
+            <ul className="mt-2 space-y-1 text-sm">
+              {data.creditPrices.filter((p) => p.channel === ch).map((p) => <li key={p.minQuantity} className="flex justify-between"><span className="text-muted">{p.minQuantity.toLocaleString()}+</span><span className="font-semibold">{fmtMoney(p.unitPrice, ps.currency)}</span></li>)}
+              {!data.creditPrices.some((p) => p.channel === ch) && <li className="text-muted">{t('admin.tiers.none')}</li>}
+            </ul>
+          </div>
+        ))}
+        <div className="card">
+          <div className="flex items-center justify-between gap-2"><p className="font-semibold">{t('admin.pay.title')}</p><button className="icon-btn" onClick={() => { setErr(''); setPay({ ...ps }) }} aria-label={t('common.edit')}><Pencil className="h-4 w-4" /></button></div>
+          <ul className="mt-2 space-y-1 text-sm text-muted">
+            <li>WhatsApp: {ps.supportWhatsapp || '-'}</li><li>{t('act.f.phone')}: {ps.supportPhone || '-'}</li><li>{t('auth.email')}: {ps.supportEmail || '-'}</li>
+            {!ps.paymentInstructions && <li className="text-danger">{t('admin.pay.missing')}</li>}
+          </ul>
+        </div>
+      </section>
 
       <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -150,6 +230,59 @@ export default function Admin() {
               <button className="btn-danger" onClick={() => act('reject')}>{t('admin.sender.reject')}</button>
             </div>
           </div>
+        </Modal>
+      )}
+      {order && (
+        <Modal title={t('admin.orders.reviewTitle', { ref: order.reference })} onClose={() => setOrder(null)}>
+          <div className="space-y-4">
+            <Alert>{err}</Alert>
+            <dl className="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-[auto_1fr]">
+              <dt className="text-muted">{t('admin.col.org')}</dt><dd>{order.organizationName} ({order.requestedByEmail})</dd>
+              {order.smsQuantity > 0 && <><dt className="text-muted">SMS</dt><dd>{order.smsQuantity.toLocaleString()} × {fmtMoney(order.smsUnitPrice, order.currency)}</dd></>}
+              {order.emailQuantity > 0 && <><dt className="text-muted">{t('common.email')}</dt><dd>{order.emailQuantity.toLocaleString()} × {fmtMoney(order.emailUnitPrice, order.currency)}</dd></>}
+              <dt className="text-muted">{t('buy.total')}</dt><dd className="font-bold">{fmtMoney(order.total, order.currency)}</dd>
+              <dt className="text-muted">{t('buy.txn')}</dt><dd>{order.paymentReference || t('admin.orders.notPaid')}</dd>
+              <dt className="text-muted">{t('admin.col.smsMode')}</dt><dd>{order.organizationSmsActivated ? <Badge>active</Badge> : <Badge>demo</Badge>}</dd>
+            </dl>
+            {order.smsQuantity > 0 && !order.organizationSmsActivated && <Alert kind="info">{t('admin.orders.noSender')}</Alert>}
+            <Alert kind="info">{t('admin.orders.verify')}</Alert>
+            <Field label={t('admin.sender.note')} hint={t('admin.sender.noteHint')}><textarea className="input min-h-[70px]" value={orderNote} onChange={(e) => setOrderNote(e.target.value)} /></Field>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <button className="btn-primary" onClick={() => reviewOrder('approve')}>{t('admin.orders.approve')}</button>
+              <button className="btn-danger" onClick={() => reviewOrder('reject')}>{t('admin.sender.reject')}</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {tiers && (
+        <Modal title={t('admin.tiers.title', { what: tiers.channel === 'sms' ? 'SMS' : t('common.email') })} onClose={() => setTiers(null)}>
+          <form onSubmit={saveTiers} className="space-y-3">
+            <Alert>{err}</Alert>
+            <p className="text-sm text-muted">{t('admin.tiers.help')}</p>
+            {tiers.rows.map((r, i) => (
+              <div key={i} className="grid grid-cols-2 gap-3">
+                <Field label={t('admin.tiers.from')}><input className="input" type="number" min={1} value={r.minQuantity} onChange={(e) => setTiers({ ...tiers, rows: tiers.rows.map((x, j) => (j === i ? { ...x, minQuantity: e.target.value } : x)) })} /></Field>
+                <Field label={t('admin.tiers.price', { cur: ps.currency })}><input className="input" type="number" min={0} step="0.01" value={r.unitPrice} onChange={(e) => setTiers({ ...tiers, rows: tiers.rows.map((x, j) => (j === i ? { ...x, unitPrice: e.target.value } : x)) })} /></Field>
+              </div>
+            ))}
+            <button type="button" className="btn-secondary w-full" onClick={() => setTiers({ ...tiers, rows: [...tiers.rows, { minQuantity: '', unitPrice: '' }] })}><Plus className="h-4 w-4" />{t('admin.tiers.add')}</button>
+            <button className="btn-primary w-full">{t('common.save')}</button>
+          </form>
+        </Modal>
+      )}
+      {pay && (
+        <Modal title={t('admin.pay.title')} onClose={() => setPay(null)}>
+          <form onSubmit={savePay} className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2"><Alert>{err}</Alert></div>
+            <div className="sm:col-span-2"><Field label={t('admin.cfg.pay')} hint={t('admin.pay.instrHint')}><textarea className="input min-h-[100px]" value={pay.paymentInstructions} onChange={(e) => setPay({ ...pay, paymentInstructions: e.target.value })} /></Field></div>
+            <Field label="WhatsApp" hint="+255712345678"><input className="input" value={pay.supportWhatsapp} onChange={(e) => setPay({ ...pay, supportWhatsapp: e.target.value })} /></Field>
+            <Field label={t('act.f.phone')}><input className="input" value={pay.supportPhone} onChange={(e) => setPay({ ...pay, supportPhone: e.target.value })} /></Field>
+            <Field label={t('auth.email')} hint={t('admin.pay.emailHint')}><input className="input" type="email" value={pay.supportEmail} onChange={(e) => setPay({ ...pay, supportEmail: e.target.value })} /></Field>
+            <Field label={t('admin.pay.hours')}><input className="input" value={pay.supportHours} onChange={(e) => setPay({ ...pay, supportHours: e.target.value })} placeholder={t('admin.pay.hoursPh')} /></Field>
+            <Field label={t('admin.cfg.currency')}><input className="input" maxLength={5} value={pay.currency} onChange={(e) => setPay({ ...pay, currency: e.target.value })} /></Field>
+            <Field label={t('admin.pay.max')}><input className="input" type="number" min={1} value={pay.maxOrderQuantity} onChange={(e) => setPay({ ...pay, maxOrderQuantity: Number(e.target.value) })} /></Field>
+            <div className="sm:col-span-2"><button className="btn-primary w-full">{t('common.save')}</button></div>
+          </form>
         </Modal>
       )}
       {cfg && (

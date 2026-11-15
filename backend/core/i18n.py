@@ -88,6 +88,18 @@ EXACT = {
     "Give a reason so the customer knows what to fix.": "Toa sababu ili mteja ajue cha kurekebisha.",
     "Unknown action.": "Kitendo hakijulikani.",
     "Language must be sw or en.": "Lugha lazima iwe sw au en.",
+    # credit orders
+    "Quantities cannot be negative.": "Idadi haiwezi kuwa hasi.",
+    "Choose how many SMS or emails you want to buy.": "Chagua idadi ya SMS au barua pepe unazotaka kununua.",
+    "You already have several orders waiting. Pay or cancel one before placing another.":
+        "Tayari una oda kadhaa zinazosubiri. Lipia au ghairi moja kabla ya kuweka nyingine.",
+    "Could not create the order. Please try again.": "Imeshindwa kuunda oda. Tafadhali jaribu tena.",
+    "Order not found.": "Oda haikupatikana.",
+    "This order can no longer be changed.": "Oda hii haiwezi kubadilishwa tena.",
+    "Enter the transaction ID from your payment confirmation.": "Weka namba ya muamala kutoka kwenye ujumbe wa uthibitisho wa malipo.",
+    "Each tier needs a minimum quantity of at least 1 and a price above 0.":
+        "Kila ngazi inahitaji idadi ya chini ya angalau 1 na bei zaidi ya 0.",
+    "Enter a valid email address.": "Weka barua pepe sahihi.",
 }
 
 PATTERNS = [
@@ -98,8 +110,13 @@ PATTERNS = [
      "SMS za majaribio hazitoshi (zimebaki {0}, zinahitajika {1}). Wezesha SMS kwa Wingi kwa Jina lako la Mtumaji ili uendelee kutuma."),
     (r"^This campaign needs (\d+) SMS credits but you have (\d+) free demo SMS left\.$",
      "Kampeni hii inahitaji SMS {0} lakini una SMS {1} za majaribio zilizobaki."),
-    (r"^This campaign needs (\d+) (SMS|EMAIL) credits but your plan has (\d+) left\.$",
-     "Kampeni hii inahitaji salio la {1} {0} lakini kifurushi chako kina {2} tu."),
+    (r"^This campaign needs (\d+) (SMS|EMAIL) credits but you have (\d+) left\.$",
+     "Kampeni hii inahitaji salio la {1} {0} lakini una {2} tu."),
+    (r"^You have no (SMS|EMAIL) credits\. Buy credits or choose a plan to start sending\.$",
+     "Huna salio la {0}. Nunua salio au chagua kifurushi ili uanze kutuma."),
+    (r"^The maximum per order is (\d+) (SMS|EMAIL)\.$", "Kiwango cha juu kwa oda moja ni {1} {0}."),
+    (r"^The minimum order is (\d+) (SMS|EMAIL)\.$", "Oda ya chini kabisa ni {1} {0}."),
+    (r"^(SMS|EMAIL) credits are not on sale right now\.$", "Salio la {0} haliuzwi kwa sasa."),
     (r"^Your plan's (SMS|EMAIL) quota is used up \((-?\d+) left, (\d+) needed\)\. Upgrade your plan to continue\.$",
      "Salio la {0} kwenye kifurushi chako limeisha (limebaki {1}, linahitajika {2}). Pandisha kifurushi ili uendelee."),
     (r"^Your plan allows up to (\d+) active API keys\. Revoke one or upgrade your plan\.$",
@@ -168,6 +185,21 @@ EMAILS = {
                "Hatukuweza kuidhinisha Jina la Mtumaji {sender}. Sababu: {note}. Unaweza kurekebisha na kutuma ombi jipya.",
                "Fungua uwezeshaji wa SMS"),
     },
+}
+
+EMAILS["order_approved"] = {
+    "en": ("Your order {ref} is approved", "Credits added",
+           "Payment for order {ref} is confirmed and the credits are now in your account. You can start sending.",
+           "Open Promokote"),
+    "sw": ("Oda yako {ref} imeidhinishwa", "Salio limeongezwa",
+           "Malipo ya oda {ref} yamethibitishwa na salio limeingia kwenye akaunti yako. Unaweza kuanza kutuma.",
+           "Fungua Promokote"),
+}
+EMAILS["order_rejected"] = {
+    "en": ("Your order {ref} needs attention", "Order not approved",
+           "We could not approve order {ref}. Reason: {note}. Contact us if you have already paid.", "View my orders"),
+    "sw": ("Oda yako {ref} inahitaji ufuatiliaji", "Oda haikuidhinishwa",
+           "Hatukuweza kuidhinisha oda {ref}. Sababu: {note}. Wasiliana nasi kama tayari umelipa.", "Ona oda zangu"),
 }
 
 ROLE_NAMES = {"sw": {"admin": "Msimamizi", "marketer": "Mtangazaji", "developer": "Msanidi", "viewer": "Mtazamaji"}}

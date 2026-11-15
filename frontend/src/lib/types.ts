@@ -33,3 +33,14 @@ export interface SenderIdRequest {
   sampleMessage: string; status: string; feeAmount: number; feeCurrency: string; feePaidAt: string | null; adminNote: string
   createdAt: string; reviewedAt: string | null; organizationId?: string; organizationName?: string; requestedByEmail?: string
 }
+export interface CreditPrice { channel: 'sms' | 'email'; minQuantity: number; unitPrice: number }
+export interface PaymentSettings {
+  currency: string; paymentInstructions: string; supportPhone: string; supportWhatsapp: string
+  supportEmail: string; supportHours: string; maxOrderQuantity: number
+}
+export interface CreditOrder {
+  id: string; reference: string; smsQuantity: number; emailQuantity: number; smsUnitPrice: number; emailUnitPrice: number
+  total: number; currency: string; status: string; paymentReference: string; paymentNote: string; paidAt: string | null
+  adminNote: string; reviewedAt: string | null; createdAt: string
+  organizationName?: string; organizationSmsActivated?: boolean; requestedByEmail?: string
+}

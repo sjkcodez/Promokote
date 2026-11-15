@@ -77,6 +77,16 @@ Also included from the requirements document: organisations + roles (owner/admin
 - **Bulk SMS activation**: until an organisation's Sender ID is approved (`Organization.sms_activated`), all SMS use the demo allowance. Customers request a Sender ID on *Bulk SMS activation*; platform admins confirm payment and approve/reject in *Platform admin*, where the fee, approval time and payment instructions are also set. Organisations that existed before this change were migrated as already activated.
 - Upstream `send-sms` has no sender field today; set `UPSTREAM_SMS_SENDER_FIELD` once it does and the approved Sender ID is passed through.
 
+## Buying credits (pay as you go) and how payment works
+
+1. On **Buy credits** the customer enters how many SMS and/or emails they want. The price comes from admin-managed volume tiers (`CreditPrice`; e.g. 100+ SMS at 30, 1000+ at 25) and is recalculated on the server.
+2. Sending the order creates a `CreditOrder` with a reference like `PK-7F3K2Q`, priced at that moment.
+3. The customer pays using the **payment instructions** and quotes the reference, then enters the transaction ID ("I have paid").
+4. For faster approval they can contact the team by WhatsApp (message prefilled with the reference), phone or email. These contact details, the payment instructions and support hours are set in *Platform admin -> Payment & contact details*. The support email is also notified of every new order, payment and paid-plan request.
+5. A platform admin checks the payment and **approves** (credits are added once, atomically) or **rejects** with a reason. The customer is emailed either way.
+
+Purchased credits never expire and are used after the active plan's own quota (`billing/credits.py`, `billing.services.consume_paid`). SMS still require an approved Sender ID; until then SMS use the free demo allowance. `python manage.py seed_plans` also creates example price tiers.
+
 ## Not built yet (from the requirements doc)
 Wallet/top-ups and payment provider (Phase 1 in the doc - subscriptions were built instead as requested), sending-domain verification/DKIM (upstream owns the sending domain), webhooks and delivery callbacks (upstream returns only an acknowledgement, so status is *sent/failed*, not *delivered*), inbound STOP replies, templates, TOTP MFA, multi-organisation switching, audit-log screen, data-retention jobs. The backend is split into modules so these can be added without rewrites.
 

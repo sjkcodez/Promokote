@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import DemoAllowance, DemoClaim, DemoCreditEntry, Plan, SenderIdRequest, SmsActivationConfig, Subscription
+from .models import CreditAccount, CreditEntry, CreditOrder, CreditPrice, PaymentSettings, DemoAllowance, DemoClaim, DemoCreditEntry, Plan, SenderIdRequest, SmsActivationConfig, Subscription
 
 
 @admin.register(Plan)
@@ -44,3 +44,35 @@ class SenderIdRequestAdmin(admin.ModelAdmin):
 @admin.register(SmsActivationConfig)
 class SmsActivationConfigAdmin(admin.ModelAdmin):
     list_display = ("sender_id_fee", "currency", "processing_days", "updated_at")
+
+
+@admin.register(CreditOrder)
+class CreditOrderAdmin(admin.ModelAdmin):
+    list_display = ("reference", "organization", "sms_quantity", "email_quantity", "total", "status", "payment_reference", "created_at")
+    list_filter = ("status",)
+    search_fields = ("reference", "organization__name", "payment_reference")
+    readonly_fields = ("status",)   # approve / reject from Platform admin so credits are added exactly once
+
+
+@admin.register(CreditPrice)
+class CreditPriceAdmin(admin.ModelAdmin):
+    list_display = ("channel", "min_quantity", "unit_price")
+
+
+@admin.register(PaymentSettings)
+class PaymentSettingsAdmin(admin.ModelAdmin):
+    list_display = ("currency", "support_phone", "support_whatsapp", "support_email", "updated_at")
+
+
+@admin.register(CreditAccount)
+class CreditAccountAdmin(admin.ModelAdmin):
+    list_display = ("organization", "sms_balance", "email_balance")
+
+
+@admin.register(CreditEntry)
+class CreditEntryAdmin(admin.ModelAdmin):
+    list_display = ("organization", "channel", "kind", "units", "order", "created_at")
+    list_filter = ("channel", "kind")
+
+    def has_change_permission(self, request, obj=None):
+        return False

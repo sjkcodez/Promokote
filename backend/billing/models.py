@@ -145,3 +145,89 @@ class SenderIdRequest(models.Model):
         ordering = ["-created_at"]
         constraints = [models.UniqueConstraint(fields=["organization"], condition=models.Q(status__in=["submitted", "under_review"]),
                                                name="one_open_sender_request_per_org")]
+
+
+# ---------------- Pay-as-you-go credits ----------------
+CHANNELS = [("sms", "SMS"), ("email", "Email")]
+
+
+class CreditPrice(models.Model):
+    """Volume price tier: buying at least `min_quantity` units of `channel` costs `unit_price` each. Admin-managed."""
+    channel = models.CharField(max_length=10, choices=CHANNELS)
+    min_quantity = models.PositiveIntegerField(default=1)
+    unit_price = models.DecimalField(max_digits=12, decimal_places=2)
+
+    class Meta:
+        ordering = ["channel", "min_quantity"]
+        unique_together = ("channel", "min_quantity")
+
+
+class PaymentSettings(models.Model):
+    """Singleton: how customers pay and how they reach the team. Editable by Platform Admins."""
+    currency = models.CharField(max_length=5, default="TZS")
+    payment_instructions = models.TextField(blank=True, help_text="e.g. M-Pesa Lipa number, bank account. Shown on every order.")
+    support_phone = models.CharField(max_length=30, blank=True)
+    support_whatsapp = models.CharField(max_length=30, blank=True, help_text="International format, e.g. +255712345678")
+    support_email = models.EmailField(blank=True, help_text="Also receives a notification for every new order / payment")
+    support_hours = models.CharField(max_length=120, blank=True)
+    max_order_quantity = models.PositiveIntegerField(default=1_000_000)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @classmethod
+    def get(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+
+class CreditAccount(models.Model):
+    """Purchased (non-expiring) credits of an organisation, used after the plan's own quota."""
+    organization = models.OneToOneField("accounts.Organization", on_delete=models.CASCADE, primary_key=True,
+                                        related_name="credit_account")
+    sms_balance = models.PositiveIntegerField(default=0)
+    email_balance = models.PositiveIntegerField(default=0)
+
+
+class CreditEntry(models.Model):
+    """Append-only ledger of purchased-credit movements."""
+    PURCHASE, DEBIT, REFUND = "purchase", "debit", "refund"
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey("accounts.Organization", on_delete=models.CASCADE, related_name="credit_entries")
+    channel = models.CharField(max_length=10)
+    kind = models.CharField(max_length=10)
+    units = models.PositiveIntegerField()
+    order = models.ForeignKey("CreditOrder", null=True, blank=True, on_delete=models.SET_NULL)
+    message = models.ForeignKey("messaging.Message", null=True, blank=True, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class CreditOrder(models.Model):
+    """A customer's request to buy SMS and/or email credits. Prices are fixed when the order is placed."""
+    PENDING_PAYMENT, PAYMENT_SUBMITTED, APPROVED, REJECTED, CANCELLED = (
+        "pending_payment", "payment_submitted", "approved", "rejected", "cancelled")
+    OPEN = (PENDING_PAYMENT, PAYMENT_SUBMITTED)
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    reference = models.CharField(max_length=16, unique=True)   # quoted when paying, e.g. PK-7F3K2Q
+    organization = models.ForeignKey("accounts.Organization", on_delete=models.CASCADE, related_name="credit_orders")
+    requested_by = models.ForeignKey("accounts.User", null=True, on_delete=models.SET_NULL, related_name="+")
+    sms_quantity = models.PositiveIntegerField(default=0)
+    email_quantity = models.PositiveIntegerField(default=0)
+    sms_unit_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    email_unit_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total = models.DecimalField(max_digits=14, decimal_places=2)
+    currency = models.CharField(max_length=5, default="TZS")
+    status = models.CharField(max_length=20, default=PENDING_PAYMENT, db_index=True)
+    payment_reference = models.CharField(max_length=80, blank=True, help_text="Transaction ID given by the customer")
+    payment_note = models.CharField(max_length=300, blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+    admin_note = models.CharField(max_length=300, blank=True)
+    reviewed_by = models.ForeignKey("accounts.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]

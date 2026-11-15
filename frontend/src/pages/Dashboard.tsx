@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Ban, KeyRound, Mail, MessageSquare, Send, Users } from 'lucide-react'
+import { Ban, KeyRound, Mail, MessageSquare, Send, Users, Wallet } from 'lucide-react'
 import { fmtDate, useQuery } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
@@ -13,6 +13,8 @@ interface Data {
   dashboard: { smsSent: number; emailSent: number; failed: number; blocked: number; contacts: number; campaigns: number }
   messages: Message[]
   demoCredits: DemoCredits
+  creditBalance: { sms: number; email: number }
+  creditOrders: { reference: string; status: string }[]
 }
 
 export default function Dashboard() {
@@ -24,6 +26,8 @@ export default function Dashboard() {
     dashboard { smsSent emailSent failed blocked contacts campaigns }
     messages(limit: 6) { id channel recipient status createdAt billingSource }
     demoCredits { ${DEMO_FIELDS} }
+    creditBalance { sms email }
+    creditOrders { reference status }
   }`)
   if (loading) return <Loading />
   if (error || !data) return <Alert>{error}</Alert>
@@ -44,12 +48,23 @@ export default function Dashboard() {
       <PageHeader title={t('dash.hello', { name: user?.fullName.split(' ')[0] || t('dash.there') })} subtitle={t('dash.subtitle')}
         action={<Link to="/send" className="btn-primary"><Send className="h-4 w-4" />{t('dash.send')}</Link>} />
 
-      {!sub && <Alert kind="info">{t('dash.noPlan')} <Link className="font-semibold underline" to="/plans">{t('dash.choosePlan')}</Link></Alert>}
+      {!sub && <Alert kind="info">{t('dash.noPlan')} <Link className="font-semibold underline" to="/buy-credits">{t('dash.buyOrPlan')}</Link></Alert>}
+      {data.creditOrders.filter((o) => o.status === 'pending_payment' || o.status === 'payment_submitted').map((o) => (
+        <Alert key={o.reference} kind="info">{t(o.status === 'pending_payment' ? 'dash.orderUnpaid' : 'dash.orderChecking', { ref: o.reference })} <Link className="font-semibold underline" to="/buy-credits">{t('dash.viewOrder')}</Link></Alert>
+      ))}
       {data.pendingSubscription && <Alert kind="info">{t('dash.pending', { name: data.pendingSubscription.plan.name })}</Alert>}
 
       <div className="grid gap-4 md:grid-cols-2">
         {inDemo ? <DemoCard demo={demo} /> : sub && usage(t('dash.smsCredits'), sub.smsUsed, sub.plan.smsQuota, MessageSquare)}
         {sub && usage(t('dash.emails'), sub.emailUsed, sub.plan.emailQuota, Mail)}
+      </div>
+
+      <div className="card flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <Wallet className="h-6 w-6 shrink-0 text-accent" />
+          <div><p className="font-semibold">{t('buy.balance')}</p><p className="text-sm text-muted">{t('dash.bought', { sms: data.creditBalance.sms.toLocaleString(), email: data.creditBalance.email.toLocaleString() })}</p></div>
+        </div>
+        <Link to="/buy-credits" className="btn-primary">{t('nav.buy')}</Link>
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

@@ -1,7 +1,7 @@
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import exceptions
-from billing import demo
+from billing import credits, demo
 from billing.services import current_subscription, remaining
 from messaging.models import Message
 from messaging.services import SendError, submit_message
@@ -101,6 +101,7 @@ class UsageView(BaseApiView):
         org = request.auth.organization
         allowance = demo.get_allowance(org)
         extra = {"sms_mode": "demo" if demo.in_demo(org) else "active",
+                 "purchased_credits": {"sms": credits.balance(org, "sms"), "email": credits.balance(org, "email")},
                  "sms_demo": {"granted": allowance.granted if allowance else 0, "used": allowance.used if allowance else 0,
                               "remaining": allowance.remaining if allowance else 0}}
         sub = current_subscription(org)

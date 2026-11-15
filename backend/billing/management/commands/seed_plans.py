@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from billing.models import Plan
+from billing.models import CreditPrice, Plan
 
 PLANS = [
     dict(name="Free Trial", description="Try Promokote with a small allowance", price=0, sms_quota=0, email_quota=50,
@@ -12,6 +12,8 @@ PLANS = [
          rate_limit_per_minute=1000, max_api_keys=50, sort_order=3),
 ]
 
+TIERS = [("sms", 100, 30), ("sms", 1000, 25), ("sms", 10000, 20), ("email", 500, 5), ("email", 10000, 3)]
+
 
 class Command(BaseCommand):
     help = "Create starter subscription plans (admins can edit them afterwards)."
@@ -20,3 +22,7 @@ class Command(BaseCommand):
         for p in PLANS:
             _, created = Plan.objects.get_or_create(name=p["name"], defaults=p)
             self.stdout.write(f"{'created' if created else 'exists '} {p['name']}")
+        # Example pay-as-you-go tiers (TZS per unit) - edit them in Platform admin
+        for channel, min_q, price in TIERS:
+            CreditPrice.objects.get_or_create(channel=channel, min_quantity=min_q, defaults={"unit_price": price})
+        self.stdout.write("price tiers ok")

@@ -14,6 +14,7 @@ import Contacts from './pages/Contacts'
 import Campaigns from './pages/Campaigns'
 import OptOuts from './pages/OptOuts'
 import Plans from './pages/Plans'
+import BuyCredits from './pages/BuyCredits'
 import SmsActivation from './pages/SmsActivation'
 import Team from './pages/Team'
 import Docs from './pages/Docs'
@@ -64,6 +65,7 @@ export default function App() {
         <Route path="/api-keys" element={<Protected><ApiKeys /></Protected>} />
         <Route path="/docs" element={<Protected><Docs /></Protected>} />
         <Route path="/plans" element={<Protected><Plans /></Protected>} />
+        <Route path="/buy-credits" element={<Protected><BuyCredits /></Protected>} />
         <Route path="/sms-activation" element={<Protected><SmsActivation /></Protected>} />
         <Route path="/team" element={<Protected><Team /></Protected>} />
         <Route path="/admin" element={<Protected staff><Admin /></Protected>} />

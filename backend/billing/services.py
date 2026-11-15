@@ -62,3 +62,19 @@ def refund(org, channel, units):
         field = "sms_used" if channel == "sms" else "email_used"
         setattr(sub, field, max(0, getattr(sub, field) - units))
         sub.save(update_fields=[field])
+
+
+def consume_paid(org, channel, units):
+    """Charge a non-demo send: the active plan's quota first, then purchased credits. Returns the pool used.
+    Must run inside the caller's transaction so the debit and the message row commit together."""
+    from . import credits
+    try:
+        consume(org, channel, units)
+        return "subscription"
+    except QuotaError as exc:
+        if credits.consume(org, channel, units):
+            return "credits"
+        if exc.code == "no_subscription":
+            raise QuotaError(f"You have no {channel.upper()} credits. Buy credits or choose a plan to start sending.",
+                             "no_credits")
+        raise

@@ -2,19 +2,24 @@ import { Link } from 'react-router-dom'
 import { BadgeCheck, FlaskConical } from 'lucide-react'
 import PublicShell from '../components/PublicShell'
 import PlanCards from '../components/PlanCards'
+import PaymentSteps from '../components/PaymentSteps'
+import ContactCard from '../components/ContactCard'
+import { PAYMENT_FIELDS } from '../lib/pricing'
 import { Alert, Loading } from '../components/ui'
 import { fmtMoney, useQuery } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
-import type { ActivationConfig, Plan } from '../lib/types'
+import type { ActivationConfig, CreditPrice, PaymentSettings, Plan } from '../lib/types'
 
 /** Public pricing page: every active package, straight from the backend. */
 export default function Pricing() {
   const { t } = useI18n()
   const { user } = useAuth()
-  const { data, loading, error } = useQuery<{ plans: Plan[]; smsActivationConfig: ActivationConfig }>(`{
+  const { data, loading, error } = useQuery<{ plans: Plan[]; smsActivationConfig: ActivationConfig; creditPrices: CreditPrice[]; paymentSettings: PaymentSettings }>(`{
     plans { id name description price currency periodDays smsQuota emailQuota rateLimitPerMinute maxApiKeys }
     smsActivationConfig { senderIdFee currency processingDays demoCredits demoSenderName }
+    creditPrices { channel minQuantity unitPrice }
+    paymentSettings { ${PAYMENT_FIELDS} }
   }`)
   const cfg = data?.smsActivationConfig
   return (
@@ -35,6 +40,35 @@ export default function Pricing() {
             </p></div>
           </div>
         </div>
+        {data && data.creditPrices.length > 0 && (
+          <section className="mb-10">
+            <h2 className="text-2xl font-extrabold tracking-tight">{t('pricing.payg.title')}</h2>
+            <p className="mt-2 max-w-2xl text-muted">{t('pricing.payg.text')}</p>
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              {(['sms', 'email'] as const).map((ch) => {
+                const rows = data.creditPrices.filter((p) => p.channel === ch)
+                if (!rows.length) return null
+                return (
+                  <div key={ch} className="card">
+                    <p className="font-bold">{ch === 'sms' ? 'SMS' : t('common.email')}</p>
+                    <table className="mt-3 w-full text-sm">
+                      <thead><tr className="text-left text-muted"><th className="pb-2 font-medium">{t('pricing.payg.qty')}</th><th className="pb-2 text-right font-medium">{t('pricing.payg.unit')}</th></tr></thead>
+                      <tbody className="divide-y divide-line">
+                        {rows.map((r, i) => <tr key={r.minQuantity}><td className="py-2">{rows[i + 1] ? `${r.minQuantity.toLocaleString()} - ${(rows[i + 1].minQuantity - 1).toLocaleString()}` : `${r.minQuantity.toLocaleString()}+`}</td><td className="py-2 text-right font-semibold">{fmtMoney(r.unitPrice, data.paymentSettings.currency)}</td></tr>)}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="mt-6"><PaymentSteps /></div>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Link to={user ? '/buy-credits' : '/register'} className="btn-primary">{user ? t('nav.buy') : t('pricing.start')}</Link>
+              <ContactCard settings={data.paymentSettings} compact />
+            </div>
+          </section>
+        )}
+        <h2 className="mb-4 text-2xl font-extrabold tracking-tight">{t('pricing.plans.title')}</h2>
         <Alert>{error}</Alert>
         {loading ? <Loading /> : (
           <PlanCards plans={data?.plans ?? []} action={(_, rec) => (
