@@ -88,6 +88,21 @@ EXACT = {
     "Give a reason so the customer knows what to fix.": "Toa sababu ili mteja ajue cha kurekebisha.",
     "Unknown action.": "Kitendo hakijulikani.",
     "Language must be sw or en.": "Lugha lazima iwe sw au en.",
+    # user management
+    "Only the owner can give someone the Admin role.": "Mmiliki pekee ndiye anayeweza kumpa mtu nafasi ya Msimamizi.",
+    "Team member not found.": "Mwanatimu hakupatikana.",
+    "You cannot change this team member.": "Huwezi kubadilisha mwanatimu huyu.",
+    "You cannot give this role.": "Huwezi kutoa nafasi hii.",
+    "Your current password is incorrect.": "Nenosiri lako la sasa si sahihi.",
+    "Enter your name.": "Weka jina lako.",
+    "Enter a valid phone number.": "Weka namba ya simu sahihi.",
+    "That is already your email address.": "Hiyo tayari ni barua pepe yako.",
+    "This person has already accepted the invitation.": "Mtu huyu tayari amekubali mwaliko.",
+    "Only the owner can transfer ownership.": "Mmiliki pekee ndiye anayeweza kuhamisha umiliki.",
+    "Ownership can only go to an active member who has signed in.": "Umiliki unaweza kuhamishiwa tu kwa mwanatimu aliye hai ambaye ameshaingia.",
+    "User not found.": "Mtumiaji hakupatikana.",
+    "You cannot deactivate or remove admin rights from your own account.": "Huwezi kuzima akaunti yako mwenyewe wala kuondoa haki zako za usimamizi.",
+    "Only a superuser can change another superuser.": "Msimamizi mkuu pekee ndiye anayeweza kubadilisha msimamizi mkuu mwingine.",
     # credit orders
     "Quantities cannot be negative.": "Idadi haiwezi kuwa hasi.",
     "Choose how many SMS or emails you want to buy.": "Chagua idadi ya SMS au barua pepe unazotaka kununua.",
@@ -185,6 +200,15 @@ EMAILS = {
                "Hatukuweza kuidhinisha Jina la Mtumaji {sender}. Sababu: {note}. Unaweza kurekebisha na kutuma ombi jipya.",
                "Fungua uwezeshaji wa SMS"),
     },
+}
+
+EMAILS["email_changed"] = {
+    "en": ("Your Promokote email address was changed", "Email address changed",
+           "The email address of your Promokote account was changed to {new}. If you did not do this, reset your password now and contact us.",
+           "Reset password"),
+    "sw": ("Barua pepe ya akaunti yako ya Promokote imebadilishwa", "Barua pepe imebadilishwa",
+           "Barua pepe ya akaunti yako ya Promokote imebadilishwa kuwa {new}. Kama hukufanya hivi, badilisha nenosiri sasa na uwasiliane nasi.",
+           "Badilisha nenosiri"),
 }
 
 EMAILS["order_approved"] = {

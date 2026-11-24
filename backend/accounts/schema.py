@@ -1,6 +1,7 @@
 import graphene
 from django.conf import settings
 from django.contrib.auth import authenticate
+from django.contrib.auth.models import update_last_login
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -11,7 +12,8 @@ from core.i18n import current_language, normalize
 from core.system_mail import send_localized
 from .models import Membership, Organization, User
 from .permissions import ctx, get_membership
-from .tokens import make_jwt, make_signed, read_signed
+from .tokens import make_jwt, make_signed, read_signed, revoke_sessions
+from .users import can_assign
 
 
 class OrgType(graphene.ObjectType):
@@ -28,6 +30,7 @@ class UserType(graphene.ObjectType):
     id = graphene.ID()
     email = graphene.String()
     full_name = graphene.String()
+    phone = graphene.String()
     email_verified = graphene.Boolean()
     is_staff = graphene.Boolean()
     language = graphene.String()
@@ -46,7 +49,7 @@ def user_type(u):
     o = m.organization if m else None
     org = OrgType(id=o.id, name=o.name, role=m.role, sms_enabled=o.sms_enabled, email_enabled=o.email_enabled,
                   sms_activated=o.sms_activated, sms_sender_id=o.sms_sender_id) if m else None
-    return UserType(id=u.id, email=u.email, full_name=u.full_name, email_verified=u.email_verified, is_staff=u.is_staff,
+    return UserType(id=u.id, email=u.email, full_name=u.full_name, phone=u.phone, email_verified=u.email_verified, is_staff=u.is_staff,
                     language=u.language, organization=org)
 
 
@@ -107,6 +110,7 @@ class Login(graphene.Mutation):
         user = authenticate(info.context, username=email.strip().lower(), password=password)
         if not user or not user.is_active:
             raise GraphQLError("Incorrect email or password.")
+        update_last_login(None, user)
         m = get_membership(user)
         audit(m.organization if m else None, user, "login")
         return AuthPayload(token=make_jwt(user), user=user_type(user))
@@ -166,6 +170,7 @@ class ResetPassword(graphene.Mutation):
         user.set_password(password)
         user.email_verified = True
         user.save()
+        revoke_sessions(user)   # a reset signs out every device
         return ResetPassword(ok=True)
 
 
@@ -178,9 +183,11 @@ class InviteMember(graphene.Mutation):
     ok = graphene.Boolean()
 
     def mutate(self, info, email, role, full_name=""):
-        user, org, _ = ctx(info, "team")
+        user, org, me = ctx(info, "team")
         if role not in dict(Membership.ROLES) or role == Membership.OWNER:
             raise GraphQLError("Choose Admin, Marketer, Developer or Viewer.")
+        if not can_assign(me, role):
+            raise GraphQLError("Only the owner can give someone the Admin role.")
         email = email.strip().lower()
         target = User.objects.filter(email=email).first()
         if target and Membership.objects.filter(user=target).exclude(organization=org).exists():

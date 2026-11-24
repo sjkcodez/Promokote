@@ -10,8 +10,8 @@ class JWTAuthMiddleware(MiddlewareMixin):
         header = request.META.get("HTTP_AUTHORIZATION", "")
         if header.startswith("Bearer "):
             from .models import User
-            uid = read_jwt(header[7:])
-            user = User.objects.filter(id=uid, is_active=True).first() if uid else None
+            uid, version = read_jwt(header[7:])
+            user = User.objects.filter(id=uid, is_active=True, token_version=version).first() if uid else None
             if user:
                 request.user = user
                 return

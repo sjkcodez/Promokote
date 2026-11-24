@@ -19,6 +19,8 @@ import SmsActivation from './pages/SmsActivation'
 import Team from './pages/Team'
 import Docs from './pages/Docs'
 import Admin from './pages/Admin'
+import AdminUsers from './pages/AdminUsers'
+import Account from './pages/Account'
 
 function Protected({ children, staff = false }: { children: ReactNode; staff?: boolean }) {
   const { user, loading } = useAuth()
@@ -69,6 +71,8 @@ export default function App() {
         <Route path="/sms-activation" element={<Protected><SmsActivation /></Protected>} />
         <Route path="/team" element={<Protected><Team /></Protected>} />
         <Route path="/admin" element={<Protected staff><Admin /></Protected>} />
+        <Route path="/admin/users" element={<Protected staff><AdminUsers /></Protected>} />
+        <Route path="/account" element={<Protected><Account /></Protected>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>

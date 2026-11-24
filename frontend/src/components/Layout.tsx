@@ -1,6 +1,6 @@
 import { ReactNode, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { BadgeCheck, BookOpen, CreditCard, KeyRound, LayoutDashboard, LogOut, Menu, MessageSquare, Radio, Send, ShieldCheck, Ban, Users, UserCog, Wallet, X } from 'lucide-react'
+import { BadgeCheck, BookOpen, CreditCard, KeyRound, LayoutDashboard, LogOut, Menu, MessageSquare, Radio, Send, ShieldCheck, Ban, Users, UserCog, UserRound, UsersRound, Wallet, X } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { gql } from '../lib/api'
 import { TKey, useI18n } from '../lib/i18n'
@@ -31,13 +31,15 @@ export default function Layout({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false)
   const [sent, setSent] = useState(false)
   const nav = useNavigate()
-  const items = user?.isStaff ? [...NAV, { to: '/admin', label: 'nav.admin' as TKey, icon: ShieldCheck }] : NAV
+  const items = user?.isStaff
+    ? [...NAV, { to: '/admin', label: 'nav.admin' as TKey, icon: ShieldCheck }, { to: '/admin/users', label: 'nav.adminUsers' as TKey, icon: UsersRound }]
+    : NAV
   const org = user?.organization
 
   const links = (
     <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-3" aria-label={t('nav.main')}>
       {items.map(({ to, label, icon: Icon }) => (
-        <NavLink key={to} to={to} end={to === '/'} onClick={() => setOpen(false)}
+        <NavLink key={to} to={to} end={to === '/' || to === '/admin'} onClick={() => setOpen(false)}
           className={({ isActive }) => `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${isActive ? 'bg-brand-500 text-on-brand' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}>
           <Icon className="h-5 w-5 shrink-0" />
           <span className="min-w-0 flex-1 leading-tight">{t(label)}</span>
@@ -56,7 +58,9 @@ export default function Layout({ children }: { children: ReactNode }) {
       {links}
       <div className="space-y-2 border-t border-white/10 p-3">
         <div className="flex items-center justify-between px-1"><LanguageSwitcher onDark /><ThemeToggle onDark /></div>
-        <p className="truncate px-2 text-xs text-zinc-500">{user?.email}</p>
+        <NavLink to="/account" onClick={() => setOpen(false)} className={({ isActive }) => `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${isActive ? 'bg-brand-500 text-on-brand' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}>
+          <UserRound className="h-5 w-5 shrink-0" /><span className="min-w-0"><span className="block">{t('nav.account')}</span><span className="block truncate text-xs opacity-70">{user?.email}</span></span>
+        </NavLink>
         <button onClick={() => { signOut(); nav('/') }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-400 hover:bg-white/5 hover:text-white">
           <LogOut className="h-5 w-5" />{t('nav.signOut')}
         </button>

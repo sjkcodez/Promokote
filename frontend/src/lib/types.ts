@@ -1,5 +1,5 @@
 export interface Org { id: string; name: string; role: string; smsEnabled: boolean; emailEnabled: boolean; smsActivated: boolean; smsSenderId: string }
-export interface User { id: string; email: string; fullName: string; emailVerified: boolean; isStaff: boolean; language: string; organization: Org | null }
+export interface User { id: string; email: string; fullName: string; phone?: string; emailVerified: boolean; isStaff: boolean; language: string; organization: Org | null }
 export interface Plan {
   id: string; name: string; description: string; price: number; currency: string; periodDays: number
   smsQuota: number; emailQuota: number; rateLimitPerMinute: number; maxApiKeys: number
@@ -43,4 +43,9 @@ export interface CreditOrder {
   total: number; currency: string; status: string; paymentReference: string; paymentNote: string; paidAt: string | null
   adminNote: string; reviewedAt: string | null; createdAt: string
   organizationName?: string; organizationSmsActivated?: boolean; requestedByEmail?: string
+}
+export interface TeamMember { id: string; email: string; fullName: string; role: string; status: string; lastLogin: string | null; joinedAt: string; isYou: boolean; canManage: boolean }
+export interface AdminUser {
+  id: string; email: string; fullName: string; phone: string; organizationName: string; role: string; status: string
+  isActive: boolean; isStaff: boolean; isSuperuser: boolean; emailVerified: boolean; lastLogin: string | null; createdAt: string
 }

@@ -53,8 +53,8 @@ const BAD = 'bg-danger-soft text-danger'
 const NEUTRAL = 'bg-subtle text-muted'
 const BADGES: Record<string, string> = {
   sent: OK, active: OK, completed: OK, approved: OK,
-  queued: WAIT, sending: WAIT, pending: WAIT, scheduled: WAIT, running: WAIT, submitted: WAIT, under_review: WAIT, demo: WAIT, pending_payment: WAIT, payment_submitted: WAIT,
-  failed: BAD, rejected: BAD,
+  queued: WAIT, sending: WAIT, pending: WAIT, scheduled: WAIT, running: WAIT, submitted: WAIT, under_review: WAIT, demo: WAIT, pending_payment: WAIT, payment_submitted: WAIT, invited: WAIT, unverified: WAIT, verified: OK,
+  failed: BAD, rejected: BAD, deactivated: BAD,
   blocked: NEUTRAL, cancelled: NEUTRAL, expired: NEUTRAL, draft: NEUTRAL, revoked: NEUTRAL,
 }
 /** Status pill. `children` is the status code; the label is translated. */

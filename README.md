@@ -35,7 +35,7 @@ python manage.py seed_plans                               # Free Trial, Starter,
 python manage.py createsuperuser                          # this user becomes a Platform Admin
 python manage.py runserver                                # http://localhost:8000  (GraphiQL at /graphql/)
 python manage.py run_worker                               # 2nd terminal: scheduled campaigns + resumes queued sends
-python manage.py test                                     # 30 tests
+python manage.py test                                     # 53 tests
 ```
 Default DB is SQLite; set `DATABASE_URL=postgres://user:pass@host:5432/promokote` for PostgreSQL.
 
@@ -86,6 +86,14 @@ Also included from the requirements document: organisations + roles (owner/admin
 5. A platform admin checks the payment and **approves** (credits are added once, atomically) or **rejects** with a reason. The customer is emailed either way.
 
 Purchased credits never expire and are used after the active plan's own quota (`billing/credits.py`, `billing.services.consume_paid`). SMS still require an approved Sender ID; until then SMS use the free demo allowance. `python manage.py seed_plans` also creates example price tiers.
+
+## User management
+
+- **My account** (`/account`): edit name and phone, change email (password required; the new address is re-verified and the old one is notified), change password, and sign out of all other devices.
+- **Team** (`/team`): invite, change roles, remove members (access ends immediately), resend pending invites, and transfer ownership (owner's password required). Rules live in `accounts/users.py`: the owner manages everyone and is the only one who can grant Admin; admins manage marketers, developers and viewers; the owner can't be removed or demoted, so every organisation keeps exactly one owner.
+- **Platform users** (`/admin/users`, staff only): search all users, deactivate/reactivate, grant or remove platform-admin access, mark emails verified, send password-reset links. Staff can't deactivate themselves, and only a superuser can change a superuser.
+- **Session revocation**: login tokens carry `User.token_version`. Changing or resetting a password, deactivation, removal from a team and "sign out everywhere" bump it, so older tokens stop working at once. Tokens issued before this change remain valid until one of those events.
+- Every action is written to the audit log.
 
 ## Not built yet (from the requirements doc)
 Wallet/top-ups and payment provider (Phase 1 in the doc - subscriptions were built instead as requested), sending-domain verification/DKIM (upstream owns the sending domain), webhooks and delivery callbacks (upstream returns only an acknowledgement, so status is *sent/failed*, not *delivered*), inbound STOP replies, templates, TOTP MFA, multi-organisation switching, audit-log screen, data-retention jobs. The backend is split into modules so these can be added without rewrites.

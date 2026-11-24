@@ -33,6 +33,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)  # Platform Admin (Promokote staff)
     language = models.CharField(max_length=5, choices=LANGUAGES, default="sw")  # UI + system-email language
+    # Bumped on password change/reset, deactivation and "sign out everywhere": older login tokens stop working.
+    token_version = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
     objects = UserManager()

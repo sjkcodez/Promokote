@@ -3,7 +3,7 @@ import { getToken, gql, setToken } from './api'
 import { isLang, useI18n } from './i18n'
 import type { User } from './types'
 
-export const USER_FIELDS = `id email fullName emailVerified isStaff language organization { id name role smsEnabled emailEnabled smsActivated smsSenderId }`
+export const USER_FIELDS = `id email fullName phone emailVerified isStaff language organization { id name role smsEnabled emailEnabled smsActivated smsSenderId }`
 
 interface AuthState {
   user: User | null
